@@ -14,13 +14,15 @@
 
 #include <fenv.h>
 #include <QStyleFactory>
+#include <QStandardPaths>
+ #include <QDir>
 
 #include "framework/global/modularity/ioc.h"
 #include "framework/ui/iuiengine.h"
 #include "framework/global/settings.h"
 
-#include "mu4/scenes/palette/internal/palette/palettecreator.h"
-#include "mu4/scenes/palette/internal/palette/masterpalette.h"
+#include "mu4/palette/internal/palette/palettecreator.h"
+#include "mu4/palette/internal/palette/masterpalette.h"
 #include "mu4/cloud/internal/cloudmanager.h"
 #include "mp3exporter.h"
 #include "mu3paletteadapter.h"
@@ -78,8 +80,8 @@
 #include "timeline.h"
 
 #include "importmidi_ui/importmidi_panel.h"
-#include "mu4/domain/importexport/internal/midiimport/importmidi_instrument.h"
-#include "mu4/domain/importexport/internal/midiimport/importmidi_operations.h"
+#include "mu4/importexport/internal/midiimport/importmidi_instrument.h"
+#include "mu4/importexport/internal/midiimport/importmidi_operations.h"
 
 #include "scorecmp/scorecmp.h"
 #include "script/recorderwidget.h"
@@ -138,7 +140,7 @@
 #include "audio/midi/event.h"
 #include "audio/midi/fluid/fluid.h"
 
-#include "plugin/qmlplugin.h"
+#include "mu4/plugins/api/qmlplugin.h"
 #include "accessibletoolbutton.h"
 #include "toolbuttonmenu.h"
 #include "searchComboBox.h"
@@ -638,6 +640,18 @@ void MuseScore::onLongOperationFinished()
 }
 
 //---------------------------------------------------------
+//   moveControlCursor
+//---------------------------------------------------------
+
+void MuseScore::moveControlCursor()
+{
+    if (!cv) {
+        return;
+    }
+    cv->moveControlCursorNearCursor();
+}
+
+//---------------------------------------------------------
 //   importExtension
 //---------------------------------------------------------
 
@@ -1091,9 +1105,9 @@ MuseScore::MuseScore()
     : QMainWindow()
 {
     mu::framework::ioc()->registerExportNoDelete<mu::framework::IMainWindow>("mscore", this);
-    mu::framework::ioc()->registerExport<mu::scene::palette::IPaletteAdapter>("mscore", new MU3PaletteAdapter());
+    mu::framework::ioc()->registerExport<mu::palette::IPaletteAdapter>("mscore", new MU3PaletteAdapter());
     mu::framework::ioc()->registerExport<mu::cloud::IMp3Exporter>("mscore", new Mp3Exporter());
-    mu::framework::ioc()->registerExport<mu::scene::inspector::IInspectorAdapter>("mscore", new MU3InspectorAdapter());
+    mu::framework::ioc()->registerExport<mu::inspector::IInspectorAdapter>("mscore", new MU3InspectorAdapter());
 
     _tourHandler = new TourHandler(this);
     qApp->installEventFilter(_tourHandler);
@@ -2111,9 +2125,9 @@ MuseScore::~MuseScore()
     paletteWidget = nullptr;
 
     mu::framework::ioc()->unregisterExport<mu::framework::IMainWindow>();
-    mu::framework::ioc()->unregisterExport<mu::scene::palette::IPaletteAdapter>();
+    mu::framework::ioc()->unregisterExport<mu::palette::IPaletteAdapter>();
     mu::framework::ioc()->unregisterExport<mu::cloud::IMp3Exporter>();
-    mu::framework::ioc()->unregisterExport<mu::scene::inspector::IInspectorAdapter>();
+    mu::framework::ioc()->unregisterExport<mu::inspector::IInspectorAdapter>();
 }
 
 //---------------------------------------------------------
@@ -6275,10 +6289,9 @@ void MuseScore::transpose()
 }
 
 //---------------------------------------------------------
-//   cmdRealizeChordSymbols
+//   realizeChordSymbols
 ///   Realize selected chord symbols into notes on the staff.
-///   Currently just pops up a dialog to list TPCs,
-///   Intervals, and pitches.
+///   Display dialog to offer overrides to default behavior
 //---------------------------------------------------------
 
 void MuseScore::realizeChordSymbols()
@@ -7929,6 +7942,50 @@ MuseScoreApplication* MuseScoreApplication::initApplication(int& argc, char** ar
     QCoreApplication::setOrganizationDomain("musescore.org");
     QCoreApplication::setApplicationVersion(MuseScore::fullVersion());
 
+    { //! NOTE Check qml cache
+        QString qmlcachePath = qgetenv("QML_DISK_CACHE_PATH");
+        if (qmlcachePath.isEmpty()) {
+            qmlcachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/qmlcache";
+        }
+
+        QDir qmlcacheDir(qmlcachePath);
+        bool isNeedClearQmlCache = false;
+        bool isNeedWriteQmlRevision = false;
+        if (qmlcacheDir.exists()) {
+            QFile qmlcacheRefFile(qmlcacheDir.absolutePath() + "/qmlcache.revision");
+            if (qmlcacheRefFile.open(QIODevice::ReadOnly)) {
+                QString qmlcacheRef = QString(qmlcacheRefFile.readAll()).trimmed();
+                if (qmlcacheRef != revision) {
+                    isNeedClearQmlCache = true;
+                }
+            } else {
+                isNeedClearQmlCache = true;
+                isNeedWriteQmlRevision = true;
+            }
+        } else {
+            isNeedWriteQmlRevision = true;
+        }
+
+        if (isNeedClearQmlCache) {
+            bool ok = qmlcacheDir.removeRecursively();
+            if (!ok) {
+                qCritical() << "failed clear qml cache dir: " << qmlcacheDir.absolutePath();
+            }
+        }
+
+        if (isNeedWriteQmlRevision) {
+            qmlcacheDir.mkpath(qmlcacheDir.absolutePath());
+            QFile qmlcacheRefFile(qmlcacheDir.absolutePath() + "/qmlcache.revision");
+            if (qmlcacheRefFile.open(QIODevice::WriteOnly)) {
+                if (!qmlcacheRefFile.write(revision.toLatin1())) {
+                    qCritical() << "failed write file: " << qmlcacheRefFile.fileName();
+                }
+            } else {
+                qCritical() << "failed open file: " << qmlcacheRefFile.fileName();
+            }
+        }
+    }
+
 #ifdef BUILD_CRASH_REPORTER
     {
         static_assert(sizeof(CRASHREPORTER_EXECUTABLE) > 1,
@@ -8274,6 +8331,13 @@ static void initZitaResources()
     Q_INIT_RESOURCE(zita);
 }
 
+static void initResources()
+{
+    Q_INIT_RESOURCE(musescore);
+    Q_INIT_RESOURCE(qml);
+    Q_INIT_RESOURCE(shortcut);
+}
+
 namespace Ms {
 //---------------------------------------------------------
 //   runApplication
@@ -8281,6 +8345,8 @@ namespace Ms {
 
 int runApplication(int& argc, char** av)
 {
+    initResources();
+
 #ifndef NDEBUG
     qSetMessagePattern("%{file}:%{function}: %{message}");
     Ms::checkStyles();

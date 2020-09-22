@@ -21,9 +21,14 @@
 #include <QQmlEngine>
 
 #include "modularity/ioc.h"
+#include "ui/iuiengine.h"
+
 #include "view/recentscoresmodel.h"
 #include "view/newscoremodel.h"
+#include "view/additionalinfomodel.h"
 #include "view/scorethumbnail.h"
+#include "view/templatesmodel.h"
+#include "view/templatepaintview.h"
 #include "internal/openscorecontroller.h"
 #include "internal/userscoresconfiguration.h"
 #include "internal/templatesrepository.h"
@@ -32,8 +37,8 @@
 using namespace mu::userscores;
 using namespace mu::framework;
 
-static OpenScoreController* m_openController = new OpenScoreController();
-static UserScoresConfiguration* m_userScoresConfiguration = new UserScoresConfiguration();
+static OpenScoreController* s_openController = new OpenScoreController();
+static UserScoresConfiguration* s_userScoresConfiguration = new UserScoresConfiguration();
 
 static void userscores_init_qrc()
 {
@@ -47,8 +52,8 @@ std::string UserScoresModule::moduleName() const
 
 void UserScoresModule::registerExports()
 {
-    ioc()->registerExport<IOpenScoreController>(moduleName(), m_openController);
-    ioc()->registerExport<IUserScoresConfiguration>(moduleName(), m_userScoresConfiguration);
+    ioc()->registerExport<IOpenScoreController>(moduleName(), s_openController);
+    ioc()->registerExport<IUserScoresConfiguration>(moduleName(), s_userScoresConfiguration);
     ioc()->registerExport<ITemplatesRepository>(moduleName(), new TemplatesRepository());
 }
 
@@ -70,11 +75,17 @@ void UserScoresModule::registerUiTypes()
 {
     qmlRegisterType<RecentScoresModel>("MuseScore.UserScores", 1, 0, "RecentScoresModel");
     qmlRegisterType<NewScoreModel>("MuseScore.UserScores", 1, 0, "NewScoreModel");
+    qmlRegisterType<AdditionalInfoModel>("MuseScore.UserScores", 1, 0, "AdditionalInfoModel");
+
     qmlRegisterType<ScoreThumbnail>("MuseScore.UserScores", 1, 0, "ScoreThumbnail");
+    qmlRegisterType<TemplatesModel>("MuseScore.UserScores", 1, 0, "TemplatesModel");
+    qmlRegisterType<TemplatePaintView>("MuseScore.UserScores", 1, 0, "TemplatePaintView");
+
+    framework::ioc()->resolve<framework::IUiEngine>(moduleName())->addSourceImportPath(userscores_QML_IMPORT);
 }
 
 void UserScoresModule::onInit()
 {
-    m_userScoresConfiguration->init();
-    m_openController->init();
+    s_userScoresConfiguration->init();
+    s_openController->init();
 }

@@ -20,9 +20,11 @@
 #define MU_USERSCORES_IUSERSCORESCONFIGURATION_H
 
 #include <QStringList>
+#include <QColor>
 
 #include "modularity/imoduleexport.h"
 #include "retval.h"
+#include "io/path.h"
 
 namespace mu {
 namespace userscores {
@@ -36,7 +38,10 @@ public:
     virtual ValCh<QStringList> recentScoreList() const = 0;
     virtual void setRecentScoreList(const QStringList& recentScoreList) = 0;
 
-    virtual QStringList templatesDirPaths() const = 0;
+    virtual io::paths templatesDirPaths() const = 0;
+
+    virtual QColor templatePreviewBackgroundColor() const = 0;
+    virtual async::Channel<QColor> templatePreviewBackgroundColorChanged() const = 0;
 };
 }
 }

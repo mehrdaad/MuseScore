@@ -37,6 +37,7 @@ prepend_to_list_items(WIDGETS_SOURCE_FILES "widgets/" WIDGETS_SOURCE_FILES)
 if (NOT MSVC)
    include (${PROJECT_SOURCE_DIR}/build/gch.cmake)
 endif (NOT MSVC)
+
 include (${PROJECT_SOURCE_DIR}/build/CopyFilesMacros.cmake)
 
 SET_SOURCE_FILES_PROPERTIES(revision.h PROPERTIES GENERATED TRUE)
@@ -49,11 +50,12 @@ include_directories(
       ${PROJECT_SOURCE_DIR}/importexport
       ${PROJECT_BINARY_DIR}
       ${QTSINGLEAPPLICATION_INCLUDE_DIRS}
-      ${PROJECT_SOURCE_DIR}/mu4/scenes/palette/internal
-      ${PROJECT_SOURCE_DIR}/mu4/scenes/palette/internal/widgets
-      ${PROJECT_BINARY_DIR}/mu4/scenes/palette
-      ${PROJECT_SOURCE_DIR}/mu4/scenes/inspector
+      ${PROJECT_SOURCE_DIR}/mu4/palette/internal
+      ${PROJECT_SOURCE_DIR}/mu4/palette/internal/widgets
+      ${PROJECT_BINARY_DIR}/mu4/palette
+      ${PROJECT_SOURCE_DIR}/mu4/inspector
       ${PROJECT_SOURCE_DIR}/mu4/cloud/internal
+      ${PROJECT_SOURCE_DIR}/mu4/plugins
       )
 
 if (BUILD_TELEMETRY_MODULE)
@@ -104,45 +106,16 @@ QT5_WRAP_UI (ui_headers
       widgets/font_style_select.ui
       )
 
-if (APPLE)
-      if (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
-            find_package(Qt5QuickCompiler)
-            qtquick_compiler_add_resources (qrc_files musescore.qrc
-                  qml.qrc
-                  musescorefonts-Mac.qrc shortcut-Mac.qrc
-                  )
-      else (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
-            QT5_ADD_RESOURCES (qrc_files musescore.qrc
-                 qml.qrc
-                 musescorefonts-Mac.qrc shortcut-Mac.qrc
-                 )
-      endif (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
-else (APPLE)
-      if (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
-            find_package(Qt5QuickCompiler)
-            qtquick_compiler_add_resources (qrc_files musescore.qrc
-                  qml.qrc
-                  musescorefonts-MScore.qrc
-                  musescorefonts-Gootville.qrc
-                  musescorefonts-Bravura.qrc
-                  musescorefonts-MuseJazz.qrc
-                  musescorefonts-Campania.qrc
-                  musescorefonts-FreeSerif.qrc
-                  musescorefonts-Free.qrc
-                  shortcut.qrc)
-      else (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
-            QT5_ADD_RESOURCES (qrc_files musescore.qrc
-                  qml.qrc
-                  musescorefonts-MScore.qrc
-                  musescorefonts-Gootville.qrc
-                  musescorefonts-Bravura.qrc
-                  musescorefonts-MuseJazz.qrc
-                  musescorefonts-Campania.qrc
-                  musescorefonts-FreeSerif.qrc
-                  musescorefonts-Free.qrc
-                  shortcut.qrc)
-      endif (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
-endif (APPLE)
+if (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
+      find_package(Qt5QuickCompiler)
+      qtquick_compiler_add_resources (qrc_files musescore.qrc
+            qml.qrc
+            shortcut.qrc)
+else (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
+      QT5_ADD_RESOURCES (qrc_files musescore.qrc
+            qml.qrc
+            shortcut.qrc)
+endif (Qt5Widgets_VERSION VERSION_GREATER_EQUAL "5.11.0")
 
 if (${CMAKE_SYSTEM} MATCHES "GNU-0.3")
       # Include some cmake support file
@@ -322,8 +295,9 @@ target_link_libraries(mscoreapp
       qzip
       importexport
       palette
-      common_scene
+      commonscene
       cloud
+      plugins
       )
 
 if (BUILD_CRASH_REPORTER)

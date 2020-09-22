@@ -315,7 +315,8 @@ const CharFormat TextCursor::selectedFragmentsFormat() const
 
     int endSelectionRow = hasSelection() ? qMax(selectLine(), _row) : _text->rows() - 1;
 
-    CharFormat resultFormat = _text->textBlock(startRow).fragment(startColumn)->format;
+    const TextFragment* tf = _text->textBlock(startRow).fragment(startColumn);
+    CharFormat resultFormat = tf ? tf->format : CharFormat();
 
     for (int row = startRow; row <= endSelectionRow; ++row) {
         TextBlock* block = &_text->_layout[row];
@@ -327,7 +328,7 @@ const CharFormat TextCursor::selectedFragmentsFormat() const
         int endSelectionColumn = hasSelection() ? qMax(selectColumn(), _column) : block->columns();
 
         for (int column = startColumn; column < endSelectionColumn; column++) {
-            CharFormat format = block->fragment(column)->format;
+            CharFormat format = block->fragment(column) ? block->fragment(column)->format : CharFormat();
 
             if (resultFormat.style() != format.style()) {
                 resultFormat.setStyle(FontStyle::Undefined);
@@ -863,8 +864,82 @@ void TextFragment::draw(QPainter* p, const TextBase* t) const
 {
     QFont f(font(t));
     f.setPointSizeF(f.pointSizeF() * MScore::pixelRatio);
+#ifndef Q_OS_MACOS
+    qreal mm = p->worldTransform().m11();
+    if (!(MScore::pdfPrinting) && (mm < 1.0) && f.bold() && !(f.underline())) {
+        // workaround for https://musescore.org/en/node/284218
+        // and https://musescore.org/en/node/281601
+        // only needed for certain artificially emboldened fonts
+        // see https://musescore.org/en/node/281601#comment-900261
+        // in Qt 5.12.x this workaround should be no more necessary if
+        // env variable QT_MAX_CACHED_GLYPH_SIZE is set to 1.
+        // The workaround works badly if the text is at the same time
+        // bold and underlined.
+        p->save();
+        qreal dx = p->worldTransform().dx();
+        qreal dy = p->worldTransform().dy();
+        // diagonal elements will now be changed to 1.0
+        // ToDo for Qt 5.15: setMatrix vs. setTransform() ??
+        p->setMatrix(QMatrix(1.0, 0.0, 0.0, 1.0, dx, dy));
+        // correction factor for bold text drawing, due to the change of the diagonal elements
+        qreal factor = 1.0 / mm;
+        QFont fnew(f, p->device());
+        fnew.setPointSizeF(f.pointSizeF() / factor);
+        QRawFont fRaw = QRawFont::fromFont(fnew);
+        QTextLayout textLayout(text, f, p->device());
+        textLayout.beginLayout();
+        while (true) {
+            QTextLine line = textLayout.createLine();
+            if (!line.isValid()) {
+                break;
+            }
+        }
+        textLayout.endLayout();
+        // glyphruns with correct positions, but potentially wrong glyphs
+        // (see bug https://musescore.org/en/node/117191 regarding positions and DPI)
+        QList<QGlyphRun> glyphruns = textLayout.glyphRuns();
+        qreal offset = 0;
+        // glyphrun drawing has an offset equal to the max ascent of the text fragment
+        for (int i = 0; i < glyphruns.length(); i++) {
+            qreal value = glyphruns.at(i).rawFont().ascent() / factor;
+            if (value > offset) {
+                offset = value;
+            }
+        }
+        for (int i = 0; i < glyphruns.length(); i++) {
+            QVector<QPointF> positions1 = glyphruns.at(i).positions();
+            QVector<QPointF> positions2;
+            // calculate the new positions for the scaled geometry
+            for (int j = 0; j < positions1.length(); j++) {
+                QPointF newPoint = positions1.at(j) / factor;
+                positions2.append(newPoint);
+            }
+            QGlyphRun glyphrun2 = glyphruns.at(i);
+            glyphrun2.setPositions(positions2);
+            // change the glyphs with the correct glyphs
+            // and account for glyph substitution
+            if (glyphrun2.rawFont().familyName() != fnew.family()) {
+                QFont f2(fnew);
+                f2.setFamily(glyphrun2.rawFont().familyName());
+                glyphrun2.setRawFont(QRawFont::fromFont(f2));
+            } else {
+                glyphrun2.setRawFont(fRaw);
+            }
+            p->drawGlyphRun(QPointF(pos.x() / factor, pos.y() / factor - offset),glyphrun2);
+            positions2.clear();
+        }
+        // Restore the QPainter to its former state
+        // ToDo for Qt 5.15: setMatrix vs. setTransform() ??
+        p->setMatrix(QMatrix(mm, 0.0, 0.0, mm, dx, dy));
+        p->restore();
+    } else {
+        p->setFont(f);
+        p->drawText(pos, text);
+    }
+#else
     p->setFont(f);
     p->drawText(pos, text);
+#endif
 }
 
 //---------------------------------------------------------

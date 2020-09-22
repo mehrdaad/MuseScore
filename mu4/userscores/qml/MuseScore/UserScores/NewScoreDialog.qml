@@ -5,11 +5,15 @@ import MuseScore.Ui 1.0
 import MuseScore.UiComponents 1.0
 import MuseScore.UserScores 1.0
 
+import "internal"
+
 QmlDialog {
     id: root
 
-    height: 500
-    width: 900
+    height: 600
+    width: 1024
+
+    title: qsTrc("userscores", "New Score")
 
     Rectangle {
 
@@ -26,29 +30,37 @@ QmlDialog {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: buttons.top
-            anchors.bottomMargin: 10
+            anchors.margins: 20
 
             ChooseInstrumentsAndTemplatesPage {
+                id: instrumentsAndTemplatePage
+
                 anchors.fill: parent
             }
 
-            Rectangle {
-                anchors.fill: parent
+            ScoreInfoPage {
+                id: scoreInfoPage
 
-                color: "red"
+                anchors.fill: parent
             }
         }
 
         Row {
             id: buttons
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: 10
+            anchors.bottomMargin: 16
             anchors.right: parent.right
-            anchors.rightMargin: 10
+            anchors.rightMargin: 16
 
-            spacing: 5
+            spacing: 12
+
+            readonly property int buttonHeight: 30
+            readonly property int buttonWidth: 132
 
             FlatButton {
+                height: buttons.buttonHeight
+                width: buttons.buttonWidth
+
                 text: qsTrc("userscores", "Cancel")
 
                 onClicked: {
@@ -56,7 +68,11 @@ QmlDialog {
                     root.hide()
                 }
             }
+
             FlatButton {
+                height: buttons.buttonHeight
+                width: buttons.buttonWidth
+
                 visible: pagesStack.currentIndex > 0
 
                 text: qsTrc("userscores", "Back")
@@ -65,7 +81,11 @@ QmlDialog {
                     pagesStack.currentIndex--
                 }
             }
+
             FlatButton {
+                height: buttons.buttonHeight
+                width: buttons.buttonWidth
+
                 visible: pagesStack.currentIndex < pagesStack.count - 1
 
                 text: qsTrc("userscores", "Next")
@@ -74,8 +94,31 @@ QmlDialog {
                     pagesStack.currentIndex++
                 }
             }
+
             FlatButton {
+                height: buttons.buttonHeight
+                width: buttons.buttonWidth
+
                 text: qsTrc("userscores", "Done")
+
+                onClicked: {
+                    var result = {}
+
+                    var instrumentsAndTemplatePageResult = instrumentsAndTemplatePage.result()
+                    for (var key in instrumentsAndTemplatePageResult) {
+                        result[key] = instrumentsAndTemplatePageResult[key]
+                    }
+
+                    var scoreInfoPageResult = scoreInfoPage.result()
+                    for (key in scoreInfoPageResult) {
+                        result[key] = scoreInfoPageResult[key]
+                    }
+
+                    if (newScoreModel.createScore(result)) {
+                        root.ret = {errcode: 0}
+                        root.hide()
+                    }
+                }
             }
         }
     }

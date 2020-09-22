@@ -38,7 +38,7 @@ const QUrl ApiInfo::LOGIN_SUCCESS_URL(ApiInfo::LOGIN_SUCCESS_PAGE);
 
 QString ApiInfo::apiInfoLocation()
 {
-    return dataPath + "/api.dat";
+    return mu::io::path(globalConfiguration()->dataPath() + "/api.dat").toQString();
 }
 
 //---------------------------------------------------------
@@ -79,7 +79,7 @@ void ApiInfo::createInstance()
     QByteArray clientId;
     if (f.open(QIODevice::ReadOnly)) {
         const QByteArray saveData = f.readAll();
-        // ToDo for Qt 5.15: QJsonDocument::fromBinaryDatsa vs. CBOR format ??
+        // ToDo for Qt 5.15: QJsonDocument::fromBinaryData vs. CBOR format ??
         const QJsonDocument d(QJsonDocument::fromBinaryData(saveData));
         QJsonObject saveObject = d.object();
         clientId = saveObject["clientId"].toString().toLatin1();
@@ -91,7 +91,7 @@ void ApiInfo::createInstance()
             QJsonObject saveObject;
             saveObject["clientId"] = QString(clientId);
             QJsonDocument saveDoc(saveObject);
-            // ToDo for Qt 5.15: QJsonDocument::toBinaryDatsa vs. CBOR format ??
+            // ToDo for Qt 5.15: QJsonDocument::toBinaryData vs. CBOR format ??
             f.write(saveDoc.toBinaryData());
             f.close();
         }
@@ -181,7 +181,8 @@ bool CloudManager::save()
     if (m_accessToken.isEmpty() && m_refreshToken.isEmpty()) {
         return true;
     }
-    QFile saveFile(dataPath + "/cred.dat");
+    mu::io::path credPath = globalConfiguration()->dataPath() + "/cred.dat";
+    QFile saveFile(credPath.toQString());
     if (!saveFile.open(QIODevice::WriteOnly)) {
         return false;
     }
@@ -189,7 +190,7 @@ bool CloudManager::save()
     saveObject["accessToken"] = m_accessToken;
     saveObject["refreshToken"] = m_refreshToken;
     QJsonDocument saveDoc(saveObject);
-    // ToDo for Qt 5.15: QJsonDocument::toBinaryDatsa vs. CBOR format ??
+    // ToDo for Qt 5.15: QJsonDocument::toBinaryData vs. CBOR format ??
     saveFile.write(saveDoc.toBinaryData());
     saveFile.close();
     return true;
@@ -201,12 +202,13 @@ bool CloudManager::save()
 
 bool CloudManager::init()
 {
-    QFile loadFile(dataPath + "/cred.dat");
+    mu::io::path credPath = globalConfiguration()->dataPath() + "/cred.dat";
+    QFile loadFile(credPath.toQString());
     if (!loadFile.open(QIODevice::ReadOnly)) {
         return false;
     }
     QByteArray saveData = loadFile.readAll();
-    // ToDo for Qt 5.15: QJsonDocument::fromBinaryDatsa vs. CBOR format ??
+    // ToDo for Qt 5.15: QJsonDocument::fromBinaryData vs. CBOR format ??
     QJsonDocument loadDoc(QJsonDocument::fromBinaryData(saveData));
     QJsonObject saveObject = loadDoc.object();
     m_accessToken = saveObject["accessToken"].toString();
@@ -852,7 +854,8 @@ bool CloudManager::logout()
 
     m_accessToken.clear();
     m_refreshToken.clear();
-    QFile loadFile(dataPath + "/cred.dat");
+    mu::io::path credPath = globalConfiguration()->dataPath() + "/cred.dat";
+    QFile loadFile(credPath.toQString());
     if (!loadFile.exists()) {
         return true;
     }

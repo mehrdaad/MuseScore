@@ -24,7 +24,7 @@
 
 using namespace mu;
 using namespace mu::userscores;
-using namespace mu::domain::notation;
+using namespace mu::notation;
 
 void OpenScoreController::init()
 {
@@ -79,7 +79,15 @@ void OpenScoreController::importScore()
 
 void OpenScoreController::newScore()
 {
-    interactive()->open("musescore://userscores/newscore");
+    Ret ret = interactive()->open("musescore://userscores/newscore").ret;
+
+    if (ret) {
+        ret = interactive()->open("musescore://notation").ret;
+    }
+
+    if (!ret) {
+        LOGE() << ret.toString();
+    }
 }
 
 io::path OpenScoreController::selectScoreFile(const QStringList& filter)
@@ -116,7 +124,7 @@ void OpenScoreController::doOpenScore(const io::path& filePath)
 void OpenScoreController::prependToRecentScoreList(io::path filePath)
 {
     QStringList recentScoreList = configuration()->recentScoreList().val;
-    QString path = QString::fromStdString(filePath);
+    QString path = filePath.toQString();
 
     if (recentScoreList.contains(path)) {
         recentScoreList.removeAll(path);

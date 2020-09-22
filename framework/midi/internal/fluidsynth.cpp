@@ -207,7 +207,7 @@ Ret FluidSynth::setupChannels(const std::vector<Event>& events)
 
     std::set<channel_t> channels;
     for (const Event& e: events) {
-        channels.insert(e.channel);
+        channels.insert(e.channel());
     }
 
     for (channel_t ch : channels) {
@@ -224,34 +224,42 @@ Ret FluidSynth::setupChannels(const std::vector<Event>& events)
 
 bool FluidSynth::handleEvent(const Event& e)
 {
+    if (e.isChannelVoice20()) {
+        auto events = e.toMIDI10();
+        bool ret = true;
+        for (auto& event : events) {
+            ret &= handleEvent(event);
+        }
+        return ret;
+    }
+
     if (m_isLoggingSynthEvents) {
         LOGD() << e.to_string();
     }
 
     int ret = FLUID_OK;
-    switch (e.type) {
+    switch (e.type()) {
     case EventType::ME_NOTEON: {
-        ret = fluid_synth_noteon(m_fluid->synth, e.channel, e.a, e.b);
+        ret = fluid_synth_noteon(m_fluid->synth, e.channel(), e.note(), e.velocity());
     } break;
     case EventType::ME_NOTEOFF: {
-        ret = fluid_synth_noteoff(m_fluid->synth, e.channel, e.a);
+        ret = fluid_synth_noteoff(m_fluid->synth, e.channel(), e.note());
     } break;
     case EventType::ME_CONTROLLER: {
-        if (e.a == CntrType::CTRL_PROGRAM) {
-            ret = fluid_synth_program_change(m_fluid->synth, e.channel, e.b);
+        if (e.index() == CntrType::CTRL_PROGRAM) {
+            ret = fluid_synth_program_change(m_fluid->synth, e.channel(), e.data());
         } else {
-            ret = fluid_synth_cc(m_fluid->synth, e.channel, e.a, e.b);
+            ret = fluid_synth_cc(m_fluid->synth, e.channel(), e.index(), e.data());
         }
     } break;
     case EventType::ME_PROGRAM: {
-        fluid_synth_program_change(m_fluid->synth, e.channel, e.b);
+        fluid_synth_program_change(m_fluid->synth, e.channel(), e.program());
     } break;
     case EventType::ME_PITCHBEND: {
-        int pitch = e.b << 7 | e.a;
-        ret = fluid_synth_pitch_bend(m_fluid->synth, e.channel, pitch);
+        ret = fluid_synth_pitch_bend(m_fluid->synth, e.channel(), e.data());
     } break;
     default: {
-        LOGW() << "not supported event type: " << static_cast<int>(e.type);
+        LOGW() << "not supported event type: " << static_cast<int>(e.type());
         ret = FLUID_FAILED;
     }
     }

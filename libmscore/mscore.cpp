@@ -380,7 +380,8 @@ void MScore::init()
         ":/fonts/bravura/BravuraText.otf",
         ":/fonts/gootville/GootvilleText.otf",
         ":/fonts/mscore/MScoreText.ttf",
-        ":/fonts/mscore/MusescoreIcon.ttf"
+        ":/fonts/mscore/MusescoreIcon.ttf",
+        ":/fonts/leland/Leland.otf"
     };
 
     for (unsigned i = 0; i < sizeof(fonts) / sizeof(*fonts); ++i) {
@@ -391,6 +392,21 @@ void MScore::init()
             }
             if (!MScore::debugMode && !MScore::testMode) {
                 exit(-1);
+            }
+        }
+    }
+
+#endif
+// Workaround for QTBUG-73241 (solved in Qt 5.12.2) in Windows 10, see https://musescore.org/en/node/280244
+#if defined(Q_OS_WIN) && (QT_VERSION < QT_VERSION_CHECK(5, 12, 2))
+    if (QOperatingSystemVersion::current().majorVersion() >= 10) {
+        const QDir additionalFontsDir(QString("%1/Microsoft/Windows/Fonts").arg(QStandardPaths::writableLocation(QStandardPaths::
+                                                                                                                 GenericDataLocation)));
+        if (additionalFontsDir.exists()) {
+            QFileInfoList fileList = additionalFontsDir.entryInfoList();
+            for (int i = 0; i < fileList.size(); ++i) {
+                QFileInfo fileInfo = fileList.at(i);
+                QFontDatabase::addApplicationFont(fileInfo.filePath());
             }
         }
     }

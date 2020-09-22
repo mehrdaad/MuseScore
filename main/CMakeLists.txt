@@ -61,6 +61,7 @@ elseif (MSCORE_INSTALL_SUFFIX)
       set(MSCORE_OUTPUT_NAME "${ExecutableName}${MSCORE_INSTALL_SUFFIX}")
 endif (MINGW OR MSVC)
 
+message("[cmake] MSCORE_OUTPUT_NAME: ${MSCORE_OUTPUT_NAME}")
 # If MSCORE_OUTPUT_NAME is set (e.g, when cmake is called by the user), the output executable will be
 # called MSCORE_OUTPUT_NAME instead of 'mscore'. This can be used to have MuseScore stable and unstable
 # both installed in the same prefix on a Linux system.
@@ -77,8 +78,40 @@ target_include_directories(mscore PRIVATE
       ${PROJECT_SOURCE_DIR}/thirdparty
       )
 
+# common
+set (BUILD_MU3 OFF)
+if (BUILD_UI_MU4)
+    if (BUILD_UI_MU4_WITH_MU3)
+        set (BUILD_MU3 ON)
+    endif(BUILD_UI_MU4_WITH_MU3)
+else (BUILD_UI_MU4)
+    set (BUILD_MU3 ON)
+endif(BUILD_UI_MU4)
 
-set(LINK_LIB mscoreapp global global_old ui uicomponents system network)
+set(FREETYPE_LIB )
+if (USE_SYSTEM_FREETYPE)
+     set(FREETYPE_LIB ${FREETYPE_LIBRARIES})
+else (USE_SYSTEM_FREETYPE)
+     set(FREETYPE_LIB mscore_freetype)
+endif (USE_SYSTEM_FREETYPE)
+
+set(LINK_LIB
+    ${FREETYPE_LIB}
+    ${QT_LIBRARIES}
+    awl
+    global
+    global_old
+    ui
+    uicomponents
+    fonts
+    system
+    network
+    )
+
+if (BUILD_TELEMETRY_MODULE)
+    set(LINK_LIB ${LINK_LIB} telemetry)
+endif(BUILD_TELEMETRY_MODULE)
+
 if (BUILD_UI_MU4)
     set(LINK_LIB ${LINK_LIB}
         actions
@@ -89,23 +122,32 @@ if (BUILD_UI_MU4)
         workspace
         mu4_audio
         mu4_midi
+        midi_old
         userscores
         extensions
         languages
         importexport
         notation
-        notation_scene
-        common_scene
+        commonscene
         palette
         inspector
         playback
         instruments
+        plugins
         )
 
     if (BUILD_VST)
         set(LINK_LIB ${LINK_LIB} vst)
     endif(BUILD_VST)
+
+    add_dependencies(mscore workspaces)
 endif(BUILD_UI_MU4)
+
+if (BUILD_MU3)
+    set(LINK_LIB ${LINK_LIB}
+        mscoreapp
+    )
+endif()
 
 target_link_libraries(mscore ${LINK_LIB} )
 
@@ -119,6 +161,7 @@ if (APPLE)
       #       XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym")
 endif (APPLE)
 
+include (${PROJECT_SOURCE_DIR}/build/CopyFilesMacros.cmake)
 
 if (MINGW)
    add_custom_command(
@@ -521,6 +564,7 @@ if (APPLE)
       ../fonts/mscoreTab.ttf
       ../fonts/mscore-BC.ttf
       ../fonts/bravura/BravuraText.otf
+      ../fonts/leland/Leland.otf
      DESTINATION ${Mscore_SHARE_NAME}${Mscore_INSTALL_NAME}fonts
      )
      install(DIRECTORY

@@ -23,6 +23,7 @@
 #include "modularity/ioc.h"
 #include "iglobalconfiguration.h"
 #include "extensions/iextensionsconfiguration.h"
+#include "notation/inotationconfiguration.h"
 
 namespace mu {
 namespace userscores {
@@ -30,6 +31,7 @@ class UserScoresConfiguration : public IUserScoresConfiguration
 {
     INJECT(usescores, framework::IGlobalConfiguration, globalConfiguration)
     INJECT(userscores, extensions::IExtensionsConfiguration, extensionsConfiguration)
+    INJECT(userscores, notation::INotationConfiguration, notationConfiguration)
 
 public:
     void init();
@@ -37,7 +39,10 @@ public:
     ValCh<QStringList> recentScoreList() const override;
     void setRecentScoreList(const QStringList& recentScoreList) override;
 
-    QStringList templatesDirPaths() const override;
+    io::paths templatesDirPaths() const override;
+
+    QColor templatePreviewBackgroundColor() const override;
+    async::Channel<QColor> templatePreviewBackgroundColorChanged() const override;
 
 private:
     QStringList parseRecentList(const std::string& recents) const;

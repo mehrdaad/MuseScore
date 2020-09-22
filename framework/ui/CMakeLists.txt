@@ -19,6 +19,9 @@
 
 set(MODULE ui)
 
+set(MODULE_QRC ui.qrc)
+set(MODULE_QML_IMPORT ${CMAKE_CURRENT_LIST_DIR}/qml)
+
 set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/uimodule.cpp
     ${CMAKE_CURRENT_LIST_DIR}/uimodule.h
@@ -44,6 +47,7 @@ set(MODULE_SRC
     ${CMAKE_CURRENT_LIST_DIR}/view/qmltheme.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/qmltheme.h
     ${CMAKE_CURRENT_LIST_DIR}/view/iconcodes.h
+    ${CMAKE_CURRENT_LIST_DIR}/view/musicalsymbolcodes.h
     ${CMAKE_CURRENT_LIST_DIR}/view/qmltranslation.cpp
     ${CMAKE_CURRENT_LIST_DIR}/view/qmltranslation.h
     ${CMAKE_CURRENT_LIST_DIR}/view/qmllauncher.cpp
@@ -62,8 +66,5 @@ set(MODULE_SRC
 set(MODULE_UI
     ${CMAKE_CURRENT_LIST_DIR}/dev/testdialog.ui
     )
-
-set(MODULE_QRC ui.qrc)
-set(MODULE_QML_IMPORT ${CMAKE_CURRENT_LIST_DIR}/qml )
 
 include(${PROJECT_SOURCE_DIR}/build/module.cmake)

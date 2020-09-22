@@ -27,20 +27,19 @@
 #include <map>
 #include <functional>
 #include <set>
-
+#include <cassert>
 #include "async/channel.h"
-
-#include "audio/midi/event.h"
+#include "midievent.h"
 
 namespace mu {
 namespace midi {
 static const unsigned int AUDIO_CHANNELS = 2;
 
 using track_t = unsigned int;
-using channel_t = unsigned int;
 using program_t = unsigned int;
 using bank_t = unsigned int;
 using tick_t = int;
+using msec_t = uint64_t;
 using tempo_t = unsigned int;
 using TempoMap = std::map<tick_t, tempo_t>;
 
@@ -89,89 +88,14 @@ struct SynthesizerState {
 
 using EventType = Ms::EventType;
 using CntrType = Ms::CntrType;
-
-struct Event {
-    channel_t channel = 0;
-    EventType type = EventType::ME_INVALID;
-    int a = 0;
-    int b = 0;
-
-    Event() = default;
-    Event(channel_t ch, EventType type, int a, int b)
-        : channel(ch), type(type), a(a), b(b) {}
-
-    bool operator ==(const Event& other) const { return channel == other.channel && type == other.type && a == other.a && b == other.b; }
-    bool operator !=(const Event& other) const { return !operator==(other); }
-
-    static std::string type_to_string(EventType t)
-    {
-        switch (t) {
-        case EventType::ME_INVALID:     return "ME_INVALID";
-        case EventType::ME_NOTEOFF:     return "ME_NOTEOFF";
-        case EventType::ME_NOTEON:      return "ME_NOTEON";
-        case EventType::ME_POLYAFTER:   return "ME_POLYAFTER";
-        case EventType::ME_CONTROLLER:  return "ME_CONTROLLER";
-        case EventType::ME_PROGRAM:     return "ME_PROGRAM";
-        case EventType::ME_AFTERTOUCH:  return "ME_AFTERTOUCH";
-        case EventType::ME_PITCHBEND:   return "ME_PITCHBEND";
-        case EventType::ME_SYSEX:       return "ME_SYSEX";
-        case EventType::ME_META:        return "ME_META";
-        case EventType::ME_SONGPOS:     return "ME_SONGPOS";
-        case EventType::ME_ENDSYSEX:    return "ME_ENDSYSEX";
-        case EventType::ME_CLOCK:       return "ME_CLOCK";
-        case EventType::ME_START:       return "ME_START";
-        case EventType::ME_CONTINUE:    return "ME_CONTINUE";
-        case EventType::ME_STOP:        return "ME_STOP";
-        case EventType::ME_SENSE:       return "ME_SENSE";
-
-        case EventType::ME_NOTE:        return "ME_NOTE";
-        case EventType::ME_CHORD:       return "ME_CHORD";
-        case EventType::ME_TICK1:       return "ME_TICK1";
-        case EventType::ME_TICK2:       return "ME_TICK2";
-        case EventType::ME_EOT:         return "ME_EOT";
-        }
-        return std::string();
-    }
-
-    static std::string cc_to_string(int cc)
-    {
-        switch (cc) {
-        case 2: return "BREATH_MSB";
-        default: return std::to_string(cc);
-        }
-    }
-
-    std::string to_string() const
-    {
-        std::string str;
-        str += "channel: " + std::to_string(channel);
-        str += ", type: " + type_to_string(type);
-        switch (type) {
-        case EventType::ME_NOTEON: {
-            str += ", key: " + std::to_string(a);
-            str += ", vel: " + std::to_string(b);
-        } break;
-        case EventType::ME_NOTEOFF: {
-            str += ", key: " + std::to_string(a);
-        } break;
-        case EventType::ME_CONTROLLER: {
-            str += ", cc: " + cc_to_string(a);
-            str += ", val: " + std::to_string(b);
-        } break;
-        case EventType::ME_PITCHBEND: {
-            int pitch = b << 7 | a;
-            str += ", pitch: " + std::to_string(pitch);
-        } break;
-        default:
-            str += ", a: " + std::to_string(a);
-            str += ", b: " + std::to_string(b);
-        }
-
-        return str;
-    }
-};
-
 using Events = std::multimap<tick_t, Event>;
+
+struct Chunk {
+    tick_t beginTick = 0;
+    tick_t endTick = 0;
+    Events events;
+};
+using Chunks = std::map<tick_t /*begin*/, Chunk>;
 
 struct Program {
     channel_t channel = 0;
@@ -191,7 +115,7 @@ struct MidiData {
     SynthMap synthMap;
     std::vector<Event> initEvents;  //! NOTE Set channels programs and others
     std::vector<Track> tracks;
-    Events events;
+    Chunks chunks;
 
     bool isValid() const { return !tracks.empty(); }
 
@@ -199,7 +123,7 @@ struct MidiData {
     {
         std::set<channel_t> cs;
         for (const Event& e : initEvents) {
-            cs.insert(e.channel);
+            cs.insert(e.channel());
         }
         return cs;
     }
@@ -208,7 +132,7 @@ struct MidiData {
     {
         std::vector<Event> evts;
         for (const Event& e : initEvents) {
-            if (chs.find(e.channel) != chs.end()) {
+            if (chs.find(e.channel()) != chs.end()) {
                 evts.push_back(e);
             }
         }
@@ -240,10 +164,17 @@ struct MidiStream {
     MidiData initData;
 
     bool isStreamingAllowed = false;
-    async::Channel<MidiData> stream;
-    async::Channel<uint32_t> request;
+    tick_t lastTick = 0;
+    async::Channel<Chunk> stream;
+    async::Channel<tick_t> request;
 
     bool isValid() const { return initData.isValid(); }
+};
+
+using MidiDeviceID = std::string;
+struct MidiDevice {
+    MidiDeviceID id;
+    std::string name;
 };
 }
 }

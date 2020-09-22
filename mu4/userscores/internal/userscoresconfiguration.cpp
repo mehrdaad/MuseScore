@@ -24,8 +24,9 @@
 using namespace mu;
 using namespace mu::framework;
 using namespace mu::userscores;
+using namespace mu::notation;
 
-static std::string module_name("userscores");
+static const std::string module_name("userscores");
 
 static const Settings::Key RECENT_LIST(module_name, "userscores/recentList");
 static const Settings::Key USER_TEMPLATES(module_name, "application/paths/myTemplates");
@@ -64,13 +65,25 @@ QStringList UserScoresConfiguration::parseRecentList(const std::string& recents)
     return QString::fromStdString(recents).split(",");
 }
 
-QStringList UserScoresConfiguration::templatesDirPaths() const
+io::paths UserScoresConfiguration::templatesDirPaths() const
 {
-    QStringList dirs;
+    io::paths dirs;
 
-    dirs << io::pathToQString(globalConfiguration()->sharePath() + "/templates");
-    dirs << QString::fromStdString(settings()->value(USER_TEMPLATES).toString());
-    dirs << extensionsConfiguration()->templatesPaths();
+    dirs.push_back(globalConfiguration()->sharePath() + "/templates");
+    dirs.push_back(settings()->value(USER_TEMPLATES).toQString());
+
+    io::paths temps = extensionsConfiguration()->templatesPaths();
+    dirs.insert(dirs.end(), temps.begin(), temps.end());
 
     return dirs;
+}
+
+QColor UserScoresConfiguration::templatePreviewBackgroundColor() const
+{
+    return notationConfiguration()->backgroundColor();
+}
+
+async::Channel<QColor> UserScoresConfiguration::templatePreviewBackgroundColorChanged() const
+{
+    return notationConfiguration()->backgroundColorChanged();
 }
